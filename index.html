@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>UltraTalk v3 - Haute Fréquence</title>
+    <title>UltraTalk v4 - Silence Total</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <style>
         body { 
@@ -22,9 +22,10 @@
             width: 100%; padding: 15px; border: none; border-radius: 8px; 
             color: white; font-weight: bold; cursor: pointer; font-size: 16px;
         }
+        /* Style fidèle à ton image image_92941f.png */
         #log { 
             width: 100%; min-height: 200px; background: #000; color: #34c759;
-            border-radius: 10px; padding: 15px; font-family: 'Courier New', monospace;
+            border-radius: 12px; padding: 15px; font-family: 'Courier New', monospace;
             font-size: 22px; margin-top: 10px; box-sizing: border-box;
             word-wrap: break-word; white-space: pre-wrap; border: 1px solid #34c759;
         }
@@ -34,9 +35,9 @@
 <body>
 
     <div class="card">
-        <h2 style="margin-top:0">📤 Émetteur Invisible</h2>
+        <h2 style="margin-top:0">📤 Émetteur Fantôme</h2>
         <input type="text" id="message" placeholder="Message secret...">
-        <button style="background: #5856D6;" onclick="sendData()">🎵 ENVOYER (22kHz)</button>
+        <button style="background: #5856D6;" onclick="sendData()">🎵 ENVOYER (24kHz)</button>
     </div>
 
     <div class="card">
@@ -44,18 +45,16 @@
         <button style="background: #30d158;" onclick="startListening()">🎤 ACTIVER L'ÉCOUTE</button>
         <div class="status" id="status">Statut : Inactif</div>
         <div id="log">--- Prêt ---</div>
-        <button style="background: #ff453a; margin-top:10px; padding:8px;" onclick="clearLog()">Effacer</button>
+        <button style="background: #ff453a; margin-top:10px; padding:12px; border-radius:10px;" onclick="document.getElementById('log').innerText=''">Effacer</button>
     </div>
 
     <script>
-        // FRÉQUENCES EXTRÊMES (Inaudibles)
-        const FREQ_ZERO = 21000; 
-        const FREQ_ONE = 22000;  
-        const BIT_DURATION = 0.4; // Un peu plus lent car les hautes fréquences s'atténuent vite
+        // FRÉQUENCES FANTÔMES
+        const FREQ_ZERO = 23000; 
+        const FREQ_ONE = 24000;  
+        const BIT_DURATION = 0.5; // Plus lent pour compenser la perte de puissance à 24kHz
 
         let audioCtx = null;
-
-        function clearLog() { document.getElementById('log').innerText = ""; }
 
         function initAudio() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -66,37 +65,45 @@
             const text = document.getElementById('message').value;
             if(!text) return;
 
-            let binary = "1110"; // Header de synchro
+            let binary = "1110"; 
             for (let i = 0; i < text.length; i++) {
                 binary += text[i].charCodeAt(0).toString(2).padStart(8, '0');
             }
 
             let now = audioCtx.currentTime;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
             
-            osc.type = 'sine';
-            gain.gain.setValueAtTime(0.5, now); // Volume moyen pour éviter la distorsion
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-
-            for (let i = 0; i < binary.length; i++) {
-                const freq = binary[i] === '1' ? FREQ_ONE : FREQ_ZERO;
-                osc.frequency.setValueAtTime(freq, now + (i * BIT_DURATION));
-            }
-            osc.start(now);
-            osc.stop(now + (binary.length * BIT_DURATION));
+            // Pour chaque bit, on crée un oscillateur avec rampe pour éviter le "clic"
+            binary.split('').forEach((bit, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                const freq = bit === '1' ? FREQ_ONE : FREQ_ZERO;
+                const start = now + (i * BIT_DURATION);
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, start);
+                
+                // Rampe de volume (Fade in / Fade out) pour le silence
+                gain.gain.setValueAtTime(0, start);
+                gain.gain.linearRampToValueAtTime(0.4, start + 0.05);
+                gain.gain.setValueAtTime(0.4, start + BIT_DURATION - 0.05);
+                gain.gain.linearRampToValueAtTime(0, start + BIT_DURATION);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(start);
+                osc.stop(start + BIT_DURATION);
+            });
         }
 
         function startListening() {
             initAudio();
-            document.getElementById('status').innerText = "👂 Écoute active (Haute Fréquence)";
-            if(document.getElementById('log').innerText.includes("---")) clearLog();
+            document.getElementById('status').innerText = "👂 Écoute (Frequences Max)";
+            if(document.getElementById('log').innerText.includes("---")) document.getElementById('log').innerText = "";
 
             navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
                 const source = audioCtx.createMediaStreamSource(stream);
                 const analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 4096; // Très haute précision pour les hautes fréquences
+                analyser.fftSize = 4096;
                 source.connect(analyser);
 
                 const dataArray = new Uint8Array(analyser.frequencyBinCount);
@@ -107,10 +114,10 @@
                 let isReading = false;
                 setInterval(() => {
                     analyser.getByteFrequencyData(dataArray);
-                    // Sensibilité ajustée pour le 22kHz
-                    if (!isReading && (dataArray[i1] > 20 || dataArray[i0] > 20)) {
+                    // On baisse le seuil car le 24kHz est capté plus faiblement
+                    if (!isReading && (dataArray[i1] > 15 || dataArray[i0] > 15)) {
                         isReading = true;
-                        document.getElementById('status').innerText = "📡 Réception en cours...";
+                        document.getElementById('status').innerText = "📡 Réception...";
                         setTimeout(() => record(analyser, i0, i1), BIT_DURATION * 3000);
                     }
                 }, 50);
@@ -122,7 +129,7 @@
             const dataArray = new Uint8Array(an.frequencyBinCount);
             const interval = setInterval(() => {
                 let v0 = 0, v1 = 0;
-                for(let i=0; i<8; i++) { // Plus de mesures pour la précision
+                for(let i=0; i<10; i++) {
                     an.getByteFrequencyData(dataArray);
                     v0 += dataArray[i0]; v1 += dataArray[i1];
                 }
@@ -139,9 +146,9 @@
             
             setTimeout(() => { 
                 clearInterval(interval); 
-                document.getElementById('status').innerText = "✅ Session terminée";
-                setTimeout(() => location.reload(), 4000);
-            }, 20000);
+                document.getElementById('status').innerText = "✅ Session finie";
+                setTimeout(() => location.reload(), 5000);
+            }, 25000);
         }
     </script>
 </body>
