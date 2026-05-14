@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>AudioTalk Public</title>
+    
+    <!-- Config App iPhone -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+    <style>
+        :root { --primary: #007AFF; --bg: #f2f2f7; }
+        body { 
+            font-family: -apple-system, system-ui, sans-serif; 
+            background: var(--bg); margin: 0; padding: env(safe-area-inset-top) 20px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .card { 
+            background: white; border-radius: 20px; padding: 25px; width: 90%; max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-top: 20px;
+        }
+        h2 { margin-top: 0; font-size: 20px; color: #1c1c1e; }
+        input { 
+            width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 12px; 
+            margin-bottom: 15px; font-size: 16px; box-sizing: border-box;
+        }
+        button { 
+            width: 100%; background: var(--primary); color: white; border: none; 
+            padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px;
+            cursor: pointer; margin-bottom: 10px;
+        }
+        button.listen { background: #34C759; }
+        #log { 
+            width: 100%; height: 120px; background: #f9f9f9; border-radius: 10px;
+            padding: 15px; font-family: monospace; font-size: 18px; color: #000;
+            overflow-y: auto; border: 1px solid #eee; box-sizing: border-box;
+        }
+        .status { font-size: 13px; color: #8e8e93; text-align: center; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>🚀 Émetteur</h2>
+        <input type="text" id="message" placeholder="Message à envoyer...">
+        <button onclick="sendData()">🎵 ÉMETTRE LE SON</button>
+    </div>
+
+    <div class="card">
+        <h2>👂 Récepteur</h2>
+        <button class="listen" onclick="startListening()">🎤 ACTIVER L'ÉCOUTE</button>
+        <div id="log"></div>
+        <div id="status" class="status">Statut : En attente</div>
+        <button style="background:#ff3b30; margin-top:10px;" onclick="document.getElementById('log').innerText=''">Effacer</button>
+    </div>
+
+    <script>
+        const FREQ_ZERO = 1200;
+        const FREQ_ONE = 1500;
+        const BIT_DURATION = 0.2; // 200ms pour la stabilité
+
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function sendData() {
+            initAudio();
+            const text = document.getElementById('message').value;
+            if(!text) return;
+
+            // Header "1110" pour réveiller le récepteur
+            let binary = "1110"; 
+            for (let i = 0; i < text.length; i++) {
+                binary += text[i].charCodeAt(0).toString(2).padStart(8, '0');
+            }
+
+            let now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            gain.gain.setValueAtTime(0.5, now);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            for (let i = 0; i < binary.length; i++) {
+                const freq = binary[i] === '1' ? FREQ_ONE : FREQ_ZERO;
+                osc.frequency.setValueAtTime(freq, now + (i * BIT_DURATION));
+            }
+
+            osc.start(now);
+            osc.stop(now + (binary.length * BIT_DURATION));
+        }
+
+        function startListening() {
+            initAudio();
+            document.getElementById('status').innerText = "Statut : ÉCOUTE ACTIVE";
+
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+                const source = audioCtx.createMediaStreamSource(stream);
+                const analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 1024;
+                source.connect(analyser);
+
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                const binHz = audioCtx.sampleRate / analyser.fftSize;
+                const i0 = Math.round(FREQ_ZERO / binHz);
+                const i1 = Math.round(FREQ_ONE / binHz);
+
+                let isReading = false;
+
+                const check = setInterval(() => {
+                    analyser.getByteFrequencyData(dataArray);
+                    if (!isReading && dataArray[i1] > 60 && dataArray[i1] > dataArray[i0]) {
+                        isReading = true;
+                        // On attend la fin du header (1110)
+                        setTimeout(() => { record(analyser, i0, i1); }, BIT_DURATION * 3500);
+                    }
+                }, 30);
+            });
+        }
+
+        function record(an, i0, i1) {
+            let bits = "";
+            const dataArray = new Uint8Array(an.frequencyBinCount);
+            const interval = setInterval(() => {
+                an.getByteFrequencyData(dataArray);
+                bits += dataArray[i1] > dataArray[i0] ? "1" : "0";
+                
+                if (bits.length === 8) {
+                    let char = String.fromCharCode(parseInt(bits, 2));
+                    document.getElementById('log').innerText += char;
+                    bits = "";
+                }
+            }, BIT_DURATION * 1000);
+            
+            // S'arrête après 10 secondes de lecture
+            setTimeout(() => { clearInterval(interval); location.reload(); }, 10000);
+        }
+    </script>
+</body>
+</html>
