@@ -2,70 +2,63 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>UltraSon Talk - Public</title>
-    
-    <!-- Config iPhone PWA -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>UltraTalk v3 - Haute Fréquence</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-
     <style>
-        :root { --primary: #5856D6; --bg: #f2f2f7; }
         body { 
-            font-family: -apple-system, sans-serif; 
-            background: var(--bg); margin: 0; padding: 20px;
-            display: flex; flex-direction: column; align-items: center;
+            font-family: -apple-system, sans-serif; background: #1c1c1e; padding: 20px; color: white;
+            display: flex; flex-direction: column; align-items: center; 
         }
         .card { 
-            background: white; border-radius: 20px; padding: 20px; width: 100%; max-width: 350px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px;
+            background: #2c2c2e; border-radius: 15px; padding: 20px; 
+            width: 100%; max-width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
         }
-        h2 { margin: 0 0 15px 0; font-size: 18px; color: #1c1c1e; }
         input { 
-            width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; 
-            margin-bottom: 10px; font-size: 16px; box-sizing: border-box;
+            width: 100%; padding: 12px; margin: 10px 0; border: none; 
+            border-radius: 8px; box-sizing: border-box; font-size: 16px; background: #3a3a3c; color: white;
         }
         button { 
-            width: 100%; background: var(--primary); color: white; border: none; 
-            padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer;
+            width: 100%; padding: 15px; border: none; border-radius: 8px; 
+            color: white; font-weight: bold; cursor: pointer; font-size: 16px;
         }
         #log { 
-            width: 100%; height: 100px; background: #000; color: #00ff00;
-            border-radius: 10px; padding: 10px; font-family: monospace;
-            overflow-y: auto; box-sizing: border-box; margin-top: 10px;
+            width: 100%; min-height: 200px; background: #000; color: #34c759;
+            border-radius: 10px; padding: 15px; font-family: 'Courier New', monospace;
+            font-size: 22px; margin-top: 10px; box-sizing: border-box;
+            word-wrap: break-word; white-space: pre-wrap; border: 1px solid #34c759;
         }
-        .status { font-size: 12px; color: #8e8e93; margin-top: 5px; text-align: center; }
+        .status { font-size: 14px; color: #8e8e93; text-align: center; margin: 10px 0; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h2>🚀 Émetteur (Ultrasons)</h2>
+        <h2 style="margin-top:0">📤 Émetteur Invisible</h2>
         <input type="text" id="message" placeholder="Message secret...">
-        <button onclick="sendData()">🎵 ENVOYER</button>
-        <p class="status">Fréquences : 18.5kHz / 19kHz</p>
+        <button style="background: #5856D6;" onclick="sendData()">🎵 ENVOYER (22kHz)</button>
     </div>
 
     <div class="card">
-        <h2>👂 Récepteur</h2>
-        <button style="background:#34C759" onclick="startListening()">🎤 ACTIVER L'ÉCOUTE</button>
-        <div id="log"></div>
-        <div id="status" class="status">Statut : En attente</div>
-        <button style="background:#ff3b30; margin-top:10px; padding:5px;" onclick="document.getElementById('log').innerText=''">Effacer</button>
+        <h2 style="margin-top:0">📥 Récepteur</h2>
+        <button style="background: #30d158;" onclick="startListening()">🎤 ACTIVER L'ÉCOUTE</button>
+        <div class="status" id="status">Statut : Inactif</div>
+        <div id="log">--- Prêt ---</div>
+        <button style="background: #ff453a; margin-top:10px; padding:8px;" onclick="clearLog()">Effacer</button>
     </div>
 
     <script>
-        // --- CONFIGURATION ---
-        const FREQ_ZERO = 18500; 
-        const FREQ_ONE = 19000;  
-        const BIT_DURATION = 0.3; // 300ms (stable)
-        const HEADER = "1110";    // Signal d'alerte
+        // FRÉQUENCES EXTRÊMES (Inaudibles)
+        const FREQ_ZERO = 21000; 
+        const FREQ_ONE = 22000;  
+        const BIT_DURATION = 0.4; // Un peu plus lent car les hautes fréquences s'atténuent vite
 
         let audioCtx = null;
 
+        function clearLog() { document.getElementById('log').innerText = ""; }
+
         function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
 
         function sendData() {
@@ -73,7 +66,7 @@
             const text = document.getElementById('message').value;
             if(!text) return;
 
-            let binary = HEADER; 
+            let binary = "1110"; // Header de synchro
             for (let i = 0; i < text.length; i++) {
                 binary += text[i].charCodeAt(0).toString(2).padStart(8, '0');
             }
@@ -82,8 +75,8 @@
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             
-            osc.type = 'sine'; // Sinusoïdale est plus pure pour les ultrasons
-            gain.gain.setValueAtTime(0.5, now);
+            osc.type = 'sine';
+            gain.gain.setValueAtTime(0.5, now); // Volume moyen pour éviter la distorsion
             osc.connect(gain);
             gain.connect(audioCtx.destination);
 
@@ -91,19 +84,19 @@
                 const freq = binary[i] === '1' ? FREQ_ONE : FREQ_ZERO;
                 osc.frequency.setValueAtTime(freq, now + (i * BIT_DURATION));
             }
-
             osc.start(now);
             osc.stop(now + (binary.length * BIT_DURATION));
         }
 
         function startListening() {
             initAudio();
-            document.getElementById('status').innerText = "Statut : ÉCOUTE ACTIVE...";
+            document.getElementById('status').innerText = "👂 Écoute active (Haute Fréquence)";
+            if(document.getElementById('log').innerText.includes("---")) clearLog();
 
             navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
                 const source = audioCtx.createMediaStreamSource(stream);
                 const analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 2048; // Précision accrue pour les hautes fréquences
+                analyser.fftSize = 4096; // Très haute précision pour les hautes fréquences
                 source.connect(analyser);
 
                 const dataArray = new Uint8Array(analyser.frequencyBinCount);
@@ -112,15 +105,13 @@
                 const i1 = Math.round(FREQ_ONE / binHz);
 
                 let isReading = false;
-
-                const check = setInterval(() => {
+                setInterval(() => {
                     analyser.getByteFrequencyData(dataArray);
-                    // Détection du début (si la fréquence ONE dépasse un seuil)
-                    if (!isReading && dataArray[i1] > 40) {
+                    // Sensibilité ajustée pour le 22kHz
+                    if (!isReading && (dataArray[i1] > 20 || dataArray[i0] > 20)) {
                         isReading = true;
-                        document.getElementById('status').innerText = "Statut : RÉCEPTION...";
-                        // On attend la fin du header pour lire les données
-                        setTimeout(() => { record(analyser, i0, i1); }, BIT_DURATION * 3500);
+                        document.getElementById('status').innerText = "📡 Réception en cours...";
+                        setTimeout(() => record(analyser, i0, i1), BIT_DURATION * 3000);
                     }
                 }, 50);
             });
@@ -129,33 +120,28 @@
         function record(an, i0, i1) {
             let bits = "";
             const dataArray = new Uint8Array(an.frequencyBinCount);
-            
             const interval = setInterval(() => {
                 let v0 = 0, v1 = 0;
-                // Vote par majorité sur 5 mesures
-                for(let i=0; i<5; i++) {
+                for(let i=0; i<8; i++) { // Plus de mesures pour la précision
                     an.getByteFrequencyData(dataArray);
-                    v0 += dataArray[i0];
-                    v1 += dataArray[i1];
+                    v0 += dataArray[i0]; v1 += dataArray[i1];
                 }
-                
                 bits += (v1 > v0) ? "1" : "0";
                 
                 if (bits.length === 8) {
-                    let charCode = parseInt(bits, 2);
-                    if (charCode >= 32 && charCode <= 126) {
-                        document.getElementById('log').innerText += String.fromCharCode(charCode);
+                    let code = parseInt(bits, 2);
+                    if (code >= 32 && code <= 126) {
+                        document.getElementById('log').innerText += String.fromCharCode(code);
                     }
                     bits = "";
                 }
             }, BIT_DURATION * 1000);
-
-            // Stop après 15 secondes ou réinitialisation
+            
             setTimeout(() => { 
                 clearInterval(interval); 
-                document.getElementById('status').innerText = "Statut : Terminé";
-                setTimeout(() => location.reload(), 2000);
-            }, 15000);
+                document.getElementById('status').innerText = "✅ Session terminée";
+                setTimeout(() => location.reload(), 4000);
+            }, 20000);
         }
     </script>
 </body>
