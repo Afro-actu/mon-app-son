@@ -2,63 +2,63 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>AudioTalk Public</title>
+    <title>UltraSon Talk - Public</title>
     
-    <!-- Config App iPhone -->
+    <!-- Config iPhone PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
     <style>
-        :root { --primary: #007AFF; --bg: #f2f2f7; }
+        :root { --primary: #5856D6; --bg: #f2f2f7; }
         body { 
-            font-family: -apple-system, system-ui, sans-serif; 
-            background: var(--bg); margin: 0; padding: env(safe-area-inset-top) 20px;
+            font-family: -apple-system, sans-serif; 
+            background: var(--bg); margin: 0; padding: 20px;
             display: flex; flex-direction: column; align-items: center;
         }
         .card { 
-            background: white; border-radius: 20px; padding: 25px; width: 90%; max-width: 400px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-top: 20px;
+            background: white; border-radius: 20px; padding: 20px; width: 100%; max-width: 350px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px;
         }
-        h2 { margin-top: 0; font-size: 20px; color: #1c1c1e; }
+        h2 { margin: 0 0 15px 0; font-size: 18px; color: #1c1c1e; }
         input { 
-            width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 12px; 
-            margin-bottom: 15px; font-size: 16px; box-sizing: border-box;
+            width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; 
+            margin-bottom: 10px; font-size: 16px; box-sizing: border-box;
         }
         button { 
             width: 100%; background: var(--primary); color: white; border: none; 
-            padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px;
-            cursor: pointer; margin-bottom: 10px;
+            padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer;
         }
-        button.listen { background: #34C759; }
         #log { 
-            width: 100%; height: 120px; background: #f9f9f9; border-radius: 10px;
-            padding: 15px; font-family: monospace; font-size: 18px; color: #000;
-            overflow-y: auto; border: 1px solid #eee; box-sizing: border-box;
+            width: 100%; height: 100px; background: #000; color: #00ff00;
+            border-radius: 10px; padding: 10px; font-family: monospace;
+            overflow-y: auto; box-sizing: border-box; margin-top: 10px;
         }
-        .status { font-size: 13px; color: #8e8e93; text-align: center; margin-top: 10px; }
+        .status { font-size: 12px; color: #8e8e93; margin-top: 5px; text-align: center; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h2>🚀 Émetteur</h2>
-        <input type="text" id="message" placeholder="Message à envoyer...">
-        <button onclick="sendData()">🎵 ÉMETTRE LE SON</button>
+        <h2>🚀 Émetteur (Ultrasons)</h2>
+        <input type="text" id="message" placeholder="Message secret...">
+        <button onclick="sendData()">🎵 ENVOYER</button>
+        <p class="status">Fréquences : 18.5kHz / 19kHz</p>
     </div>
 
     <div class="card">
         <h2>👂 Récepteur</h2>
-        <button class="listen" onclick="startListening()">🎤 ACTIVER L'ÉCOUTE</button>
+        <button style="background:#34C759" onclick="startListening()">🎤 ACTIVER L'ÉCOUTE</button>
         <div id="log"></div>
         <div id="status" class="status">Statut : En attente</div>
-        <button style="background:#ff3b30; margin-top:10px;" onclick="document.getElementById('log').innerText=''">Effacer</button>
+        <button style="background:#ff3b30; margin-top:10px; padding:5px;" onclick="document.getElementById('log').innerText=''">Effacer</button>
     </div>
 
     <script>
-        const FREQ_ZERO = 1200;
-        const FREQ_ONE = 1500;
-        const BIT_DURATION = 0.2; // 200ms pour la stabilité
+        // --- CONFIGURATION ---
+        const FREQ_ZERO = 18500; 
+        const FREQ_ONE = 19000;  
+        const BIT_DURATION = 0.3; // 300ms (stable)
+        const HEADER = "1110";    // Signal d'alerte
 
         let audioCtx = null;
 
@@ -73,8 +73,7 @@
             const text = document.getElementById('message').value;
             if(!text) return;
 
-            // Header "1110" pour réveiller le récepteur
-            let binary = "1110"; 
+            let binary = HEADER; 
             for (let i = 0; i < text.length; i++) {
                 binary += text[i].charCodeAt(0).toString(2).padStart(8, '0');
             }
@@ -82,7 +81,8 @@
             let now = audioCtx.currentTime;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = 'triangle';
+            
+            osc.type = 'sine'; // Sinusoïdale est plus pure pour les ultrasons
             gain.gain.setValueAtTime(0.5, now);
             osc.connect(gain);
             gain.connect(audioCtx.destination);
@@ -98,12 +98,12 @@
 
         function startListening() {
             initAudio();
-            document.getElementById('status').innerText = "Statut : ÉCOUTE ACTIVE";
+            document.getElementById('status').innerText = "Statut : ÉCOUTE ACTIVE...";
 
             navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
                 const source = audioCtx.createMediaStreamSource(stream);
                 const analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 1024;
+                analyser.fftSize = 2048; // Précision accrue pour les hautes fréquences
                 source.connect(analyser);
 
                 const dataArray = new Uint8Array(analyser.frequencyBinCount);
@@ -115,31 +115,47 @@
 
                 const check = setInterval(() => {
                     analyser.getByteFrequencyData(dataArray);
-                    if (!isReading && dataArray[i1] > 60 && dataArray[i1] > dataArray[i0]) {
+                    // Détection du début (si la fréquence ONE dépasse un seuil)
+                    if (!isReading && dataArray[i1] > 40) {
                         isReading = true;
-                        // On attend la fin du header (1110)
+                        document.getElementById('status').innerText = "Statut : RÉCEPTION...";
+                        // On attend la fin du header pour lire les données
                         setTimeout(() => { record(analyser, i0, i1); }, BIT_DURATION * 3500);
                     }
-                }, 30);
+                }, 50);
             });
         }
 
         function record(an, i0, i1) {
             let bits = "";
             const dataArray = new Uint8Array(an.frequencyBinCount);
+            
             const interval = setInterval(() => {
-                an.getByteFrequencyData(dataArray);
-                bits += dataArray[i1] > dataArray[i0] ? "1" : "0";
+                let v0 = 0, v1 = 0;
+                // Vote par majorité sur 5 mesures
+                for(let i=0; i<5; i++) {
+                    an.getByteFrequencyData(dataArray);
+                    v0 += dataArray[i0];
+                    v1 += dataArray[i1];
+                }
+                
+                bits += (v1 > v0) ? "1" : "0";
                 
                 if (bits.length === 8) {
-                    let char = String.fromCharCode(parseInt(bits, 2));
-                    document.getElementById('log').innerText += char;
+                    let charCode = parseInt(bits, 2);
+                    if (charCode >= 32 && charCode <= 126) {
+                        document.getElementById('log').innerText += String.fromCharCode(charCode);
+                    }
                     bits = "";
                 }
             }, BIT_DURATION * 1000);
-            
-            // S'arrête après 10 secondes de lecture
-            setTimeout(() => { clearInterval(interval); location.reload(); }, 10000);
+
+            // Stop après 15 secondes ou réinitialisation
+            setTimeout(() => { 
+                clearInterval(interval); 
+                document.getElementById('status').innerText = "Statut : Terminé";
+                setTimeout(() => location.reload(), 2000);
+            }, 15000);
         }
     </script>
 </body>
